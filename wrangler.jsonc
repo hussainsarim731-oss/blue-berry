@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "blue-berry",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": ".",
+    "exclude": [
+      "node_modules/**",
+      ".git/**",
+      ".wrangler/**"
+    ]
+  }
+}
