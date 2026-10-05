@@ -96,6 +96,11 @@ button:hover {
     opacity: 0.9;
 }
 
+button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
 .signal-box {
     text-align: center;
     padding: 30px 15px;
@@ -310,7 +315,7 @@ button:hover {
         </div>
 
         <div id="reason" class="reason">
-            Press START ANALYZE to receive live market price.
+            Press START ANALYZE to begin market analysis.
         </div>
 
         <div id="status" class="status">
@@ -323,17 +328,42 @@ button:hover {
 
 <script>
 
-/* =========================================================
-   BLUE BERRY — CLOUDFLARE WORKER
-   ========================================================= */
-
 const API_BASE =
     "https://blue-berry.malikontop643.workers.dev";
 
 
-/* =========================================================
-   GET REAL LIVE PRICE
-   ========================================================= */
+async function getHistory(pair) {
+
+    const url =
+        API_BASE +
+        "/api/history?pair=" +
+        encodeURIComponent(pair) +
+        "&interval=1min&outputsize=60";
+
+    const response = await fetch(url, {
+        cache: "no-store"
+    });
+
+    if (!response.ok) {
+        throw new Error(
+            "Market history error: HTTP " +
+            response.status
+        );
+    }
+
+    const data = await response.json();
+
+    if (!data.values || !Array.isArray(data.values)) {
+        throw new Error(
+            data.message ||
+            data.error ||
+            "No market history received"
+        );
+    }
+
+    return data.values;
+}
+
 
 async function getLivePrice(pair) {
 
@@ -348,7 +378,8 @@ async function getLivePrice(pair) {
 
     if (!response.ok) {
         throw new Error(
-            "Price API returned HTTP " + response.status
+            "Price error: HTTP " +
+            response.status
         );
     }
 
@@ -358,7 +389,7 @@ async function getLivePrice(pair) {
         throw new Error(
             data.message ||
             data.error ||
-            "No price received"
+            "No live price received"
         );
     }
 
@@ -366,9 +397,284 @@ async function getLivePrice(pair) {
 }
 
 
-/* =========================================================
-   ANALYZE
-   ========================================================= */
+function calculateEMA(prices, period) {
+
+    if (prices.length < period) {
+        return null;
+    }
+
+    const multiplier =
+        2 / (period + 1);
+
+    let ema = 0;
+
+    for (let i = 0; i < period; i++) {
+        ema += prices[i];
+    }
+
+    ema = ema / period;
+
+    for (let i = period; i < prices.length; i++) {
+
+        ema =
+            (prices[i] - ema) *
+            multiplier +
+            ema;
+    }
+
+    return ema;
+}
+
+
+function calculateRSI(prices, period = 14) {
+
+    if (prices.length <= period) {
+        return 50;
+    }
+
+    let gains = 0;
+    let losses = 0;
+
+    for (let i = 1; i <= period; i++) {
+
+        const change =
+            prices[i] - prices[i - 1];
+
+        if (change >= 0) {
+            gains += change;
+        } else {
+            losses += Math.abs(change);
+        }
+    }
+
+    let averageGain =
+        gains / period;
+
+    let averageLoss =
+        losses / period;
+
+    for (
+        let i = period + 1;
+        i < prices.length;
+        i++
+    ) {
+
+        const change =
+            prices[i] - prices[i - 1];
+
+        const gain =
+            change > 0 ? change : 0;
+
+        const loss =
+            change < 0 ? Math.abs(change) : 0;
+
+        averageGain =
+            ((averageGain * (period - 1)) + gain)
+            / period;
+
+        averageLoss =
+            ((averageLoss * (period - 1)) + loss)
+            / period;
+    }
+
+    if (averageLoss === 0) {
+        return 100;
+    }
+
+    const rs =
+        averageGain / averageLoss;
+
+    return 100 - (100 / (1 + rs));
+}
+
+
+function calculateMomentum(prices) {
+
+    if (prices.length < 6) {
+        return 0;
+    }
+
+    const current =
+        prices[prices.length - 1];
+
+    const previous =
+        prices[prices.length - 6];
+
+    return current - previous;
+}
+
+
+function generateSignal(prices) {
+
+    const current =
+        prices[prices.length - 1];
+
+    const ema9 =
+        calculateEMA(prices, 9);
+
+    const ema21 =
+        calculateEMA(prices, 21);
+
+    const rsi =
+        calculateRSI(prices, 14);
+
+    const momentum =
+        calculateMomentum(prices);
+
+    let score = 0;
+
+    const reasons = [];
+
+
+    if (ema9 && ema21) {
+
+        if (ema9 > ema21) {
+
+            score += 2;
+
+            reasons.push(
+                "short EMA is above long EMA"
+            );
+
+        } else {
+
+            score -= 2;
+
+            reasons.push(
+                "short EMA is below long EMA"
+            );
+        }
+    }
+
+
+    if (ema9) {
+
+        if (current > ema9) {
+
+            score += 1;
+
+            reasons.push(
+                "price is above EMA"
+            );
+
+        } else {
+
+            score -= 1;
+
+            reasons.push(
+                "price is below EMA"
+            );
+        }
+    }
+
+
+    if (rsi >= 55 && rsi < 70) {
+
+        score += 2;
+
+        reasons.push(
+            "RSI shows bullish momentum"
+        );
+
+    } else if (rsi <= 45 && rsi > 30) {
+
+        score -= 2;
+
+        reasons.push(
+            "RSI shows bearish momentum"
+        );
+
+    } else if (rsi >= 70) {
+
+        score -= 1;
+
+        reasons.push(
+            "RSI is overbought"
+        );
+
+    } else if (rsi <= 30) {
+
+        score += 1;
+
+        reasons.push(
+            "RSI is oversold"
+        );
+    }
+
+
+    if (momentum > 0) {
+
+        score += 1;
+
+        reasons.push(
+            "recent momentum is positive"
+        );
+
+    } else if (momentum < 0) {
+
+        score -= 1;
+
+        reasons.push(
+            "recent momentum is negative"
+        );
+    }
+
+
+    let direction;
+
+    if (score > 0) {
+        direction = "UP";
+    } else if (score < 0) {
+        direction = "DOWN";
+    } else {
+        direction = "NEUTRAL";
+    }
+
+
+    const maxScore = 7;
+
+    let strength =
+        Math.round(
+            50 +
+            (Math.abs(score) / maxScore) * 45
+        );
+
+    strength =
+        Math.max(
+            50,
+            Math.min(95, strength)
+        );
+
+
+    const recentPrices =
+        prices.slice(-6);
+
+    const first =
+        recentPrices[0];
+
+    const last =
+        recentPrices[recentPrices.length - 1];
+
+    let movePercent = 0;
+
+    if (first !== 0) {
+
+        movePercent =
+            ((last - first) / first) * 100;
+    }
+
+    return {
+        direction,
+        strength,
+        movePercent,
+        rsi,
+        ema9,
+        ema21,
+        momentum,
+        reasons
+    };
+}
+
 
 async function analyze() {
 
@@ -406,8 +712,6 @@ async function analyze() {
         document.getElementById("analyzeButton");
 
 
-    /* UI */
-
     signal.className =
         "signal waiting";
 
@@ -429,16 +733,19 @@ async function analyze() {
         : timeframe + " Sec";
 
     pairDisplay.innerText =
-        pair + " — " +
-        (timeframe === "60"
+        pair +
+        " — " +
+        (
+            timeframe === "60"
             ? "1 Minute"
-            : timeframe + " Seconds");
+            : timeframe + " Seconds"
+        );
 
     reason.innerText =
-        "Connecting to live market data...";
+        "Collecting live market history and calculating indicators...";
 
     status.innerText =
-        "Getting real-time price...";
+        "Blue Berry analyzing market...";
 
     button.disabled = true;
 
@@ -448,55 +755,123 @@ async function analyze() {
 
     try {
 
-        /* Get real price from Cloudflare Worker */
+        const results =
+            await Promise.all([
+                getLivePrice(pair),
+                getHistory(pair)
+            ]);
 
         const livePrice =
-            await getLivePrice(pair);
+            results[0];
+
+        const history =
+            results[1];
 
 
-        /* Display real price */
+        const candles =
+            [...history].reverse();
+
+        const prices =
+            candles.map(
+                candle => Number(candle.close)
+            );
+
+
+        if (prices.length < 21) {
+            throw new Error(
+                "Not enough market data for analysis."
+            );
+        }
+
+
+        const analysis =
+            generateSignal(prices);
+
 
         price.innerText =
             livePrice.toString();
 
 
-        /* =================================================
-           IMPORTANT:
-           Direction is NOT being faked anymore.
-           Real signal engine will be added after
-           market-history/indicator connection.
-           ================================================= */
+        if (analysis.direction === "UP") {
 
-        signal.className =
-            "signal waiting";
+            signal.className =
+                "signal up";
 
-        signal.innerText =
-            "DATA READY";
+            signal.innerText =
+                "🟢 UP";
+
+        } else if (analysis.direction === "DOWN") {
+
+            signal.className =
+                "signal down";
+
+            signal.innerText =
+                "🔴 DOWN";
+
+        } else {
+
+            signal.className =
+                "signal waiting";
+
+            signal.innerText =
+                "⚪ NEUTRAL";
+        }
 
 
         strength.innerText =
-            "LIVE";
+            analysis.strength + "%";
 
 
-        move.innerText =
-            "—";
+        const moveValue =
+            Math.abs(
+                analysis.movePercent
+            ).toFixed(3);
 
+        if (analysis.movePercent > 0) {
+
+            move.innerText =
+                "+" + moveValue + "%";
+
+        } else if (analysis.movePercent < 0) {
+
+            move.innerText =
+                "-" + moveValue + "%";
+
+        } else {
+
+            move.innerText =
+                "0.000%";
+        }
+
+
+        const rsiText =
+            analysis.rsi.toFixed(1);
+
+        const emaText =
+            analysis.ema9.toFixed(5) +
+            " / " +
+            analysis.ema21.toFixed(5);
 
         reason.innerText =
-            "Real market price received successfully. " +
-            "Blue Berry is connected to live market data. " +
-            "The technical signal engine will use market history, " +
-            "momentum, EMA, RSI, MACD and volatility analysis.";
+            "EMA9 / EMA21: " +
+            emaText +
+            ". RSI: " +
+            rsiText +
+            ". " +
+            analysis.reasons.join(". ") +
+            ".";
 
 
         status.innerText =
-            "Live market data connected";
+            "Live market analysis complete — " +
+            history.length +
+            " candles analyzed";
 
 
     } catch (error) {
 
         signal.className =
-            "signal down";
+            "signal waiting";
 
         signal.innerText =
             "ERROR";
@@ -511,12 +886,11 @@ async function analyze() {
             "—";
 
         reason.innerText =
-            "Unable to receive live market price. " +
-            "Please try again.";
+            error.message ||
+            "Unable to analyze market.";
 
         status.innerText =
-            error.message || "API connection error";
-
+            "Analysis failed — please try again";
     }
 
 
