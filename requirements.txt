@@ -1,4 +1,1 @@
-streamlit
-requests
-pandas
-numpy
+# Blue Berry uses Cloudflare Worker + static website.
