@@ -1,8 +1,1 @@
-{
-  "name": "blue-berry",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "build": "rm -rf dist && mkdir dist && cp index.html dist/index.html"
-  }
-}
+"build": "rm -rf dist && mkdir dist && cp index.html dist/index.html"
