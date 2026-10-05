@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Blue Berry — Live Trading Signal</title>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background:
+        radial-gradient(circle at top, #172554 0%, #07111f 45%, #020617 100%);
+    color: #ffffff;
+    min-height: 100vh;
+}
+
+.container {
+    width: min(1100px, 94%);
+    margin: auto;
+    padding: 25px 0 50px;
+}
+
+.header {
+    text-align: center;
+    padding: 25px 10px;
+}
+
+.logo {
+    font-size: 45px;
+    margin-bottom: 5px;
+}
+
+.title {
+    font-size: 32px;
+    font-weight: 800;
+}
+
+.subtitle {
+    color: #94a3b8;
+    margin-top: 8px;
+}
+
+.panel {
+    background: rgba(15, 23, 42, 0.82);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 20px;
+    padding: 22px;
+    margin-top: 20px;
+    box-shadow: 0 15px 45px rgba(0,0,0,0.25);
+}
+
+.settings {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 15px;
+    align-items: end;
+}
+
+label {
+    display: block;
+    color: #94a3b8;
+    font-size: 13px;
+    margin-bottom: 7px;
+}
+
+select {
+    width: 100%;
+    padding: 13px;
+    border-radius: 11px;
+    border: 1px solid #334155;
+    background: #0f172a;
+    color: white;
+    font-size: 15px;
+}
+
+button {
+    border: none;
+    border-radius: 12px;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 170px;
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+.signal-box {
+    text-align: center;
+    padding: 30px 15px;
+}
+
+.signal-label {
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+.signal {
+    font-size: 58px;
+    font-weight: 900;
+    margin: 10px 0;
+}
+
+.waiting {
+    color: #60a5fa;
+}
+
+.up {
+    color: #22c55e;
+}
+
+.down {
+    color: #ef4444;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+.card {
+    background: rgba(30, 41, 59, 0.65);
+    border-radius: 15px;
+    padding: 20px;
+    border: 1px solid rgba(148,163,184,0.1);
+}
+
+.card-title {
+    color: #94a3b8;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.card-value {
+    font-size: 22px;
+    font-weight: 800;
+}
+
+.reason {
+    color: #cbd5e1;
+    line-height: 1.6;
+    margin-top: 10px;
+}
+
+.status {
+    text-align: center;
+    color: #64748b;
+    font-size: 13px;
+    margin-top: 18px;
+}
+
+@media (max-width: 750px) {
+    .settings {
+        grid-template-columns: 1fr;
+    }
+
+    .grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    button {
+        width: 100%;
+    }
+
+    .title {
+        font-size: 27px;
+    }
+
+    .signal {
+        font-size: 48px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <div class="logo">🫐</div>
+        <div class="title">Blue Berry</div>
+        <div class="subtitle">
+            Smart Live Trading Signal System
+        </div>
+    </div>
+
+    <div class="panel">
+
+        <div class="settings">
+
+            <div>
+                <label>PAIR</label>
+
+                <select id="pair">
+                    <option>EUR/USD</option>
+                    <option>GBP/USD</option>
+                    <option>USD/JPY</option>
+                    <option>USD/CHF</option>
+                    <option>AUD/USD</option>
+                    <option>USD/CAD</option>
+                    <option>NZD/USD</option>
+                </select>
+            </div>
+
+            <div>
+                <label>TIMEFRAME</label>
+
+                <select id="timeframe">
+                    <option value="5">5 Seconds</option>
+                    <option value="10">10 Seconds</option>
+                    <option value="15">15 Seconds</option>
+                    <option value="30">30 Seconds</option>
+                    <option value="60">1 Minute</option>
+                </select>
+            </div>
+
+            <button onclick="analyze()">START ANALYZE</button>
+
+        </div>
+
+    </div>
+
+    <div class="panel">
+
+        <div class="signal-box">
+
+            <div class="signal-label">CURRENT TRADING DIRECTION</div>
+
+            <div id="signal" class="signal waiting">
+                WAITING
+            </div>
+
+            <div id="pairDisplay">
+                Select pair and timeframe
+            </div>
+
+        </div>
+
+        <div class="grid">
+
+            <div class="card">
+                <div class="card-title">LIVE PRICE</div>
+                <div id="price" class="card-value">—</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">SIGNAL STRENGTH</div>
+                <div id="strength" class="card-value">—</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">ESTIMATED MOVE</div>
+                <div id="move" class="card-value">—</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">TIMEFRAME</div>
+                <div id="tf" class="card-value">—</div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="panel">
+
+        <div class="card-title">ANALYSIS REASON</div>
+
+        <div id="reason" class="reason">
+            Press START ANALYZE to begin market analysis.
+        </div>
+
+        <div id="status" class="status">
+            Blue Berry engine ready
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+function analyze() {
+
+    const pair = document.getElementById("pair").value;
+    const timeframe = document.getElementById("timeframe").value;
+
+    const signal = document.getElementById("signal");
+    const price = document.getElementById("price");
+    const strength = document.getElementById("strength");
+    const move = document.getElementById("move");
+    const tf = document.getElementById("tf");
+    const reason = document.getElementById("reason");
+    const status = document.getElementById("status");
+    const pairDisplay = document.getElementById("pairDisplay");
+
+    signal.className = "signal waiting";
+    signal.innerText = "ANALYZING...";
+    status.innerText = "Analyzing market...";
+
+    pairDisplay.innerText = pair + " — " + timeframe + " Seconds";
+
+    setTimeout(() => {
+
+        const direction = Math.random() > 0.5 ? "UP" : "DOWN";
+
+        const strengthValue =
+            Math.floor(Math.random() * 16) + 80;
+
+        const moveValue =
+            (Math.random() * 0.25 + 0.05).toFixed(2);
+
+        if (direction === "UP") {
+            signal.className = "signal up";
+            signal.innerText = "🟢 UP";
+        } else {
+            signal.className = "signal down";
+            signal.innerText = "🔴 DOWN";
+        }
+
+        price.innerText = "LIVE DATA";
+        strength.innerText = strengthValue + "%";
+        move.innerText = (direction === "UP" ? "+" : "-") + moveValue + "%";
+
+        tf.innerText =
+            timeframe === "60"
+            ? "1 Minute"
+            : timeframe + " Sec";
+
+        reason.innerText =
+            "Demo UI only — real market-data engine will be connected in the next step. " +
+            "Future analysis will combine EMA, RSI, MACD, momentum, volatility, " +
+            "support/resistance and multi-timeframe confirmation.";
+
+        status.innerText =
+            "Blue Berry analysis complete";
+
+    }, 2500);
+}
+
+</script>
+
+</body>
+  </html>
